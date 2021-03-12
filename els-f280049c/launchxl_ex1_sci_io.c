@@ -111,9 +111,9 @@ int SCI_read(int dev_fd, char * buf, unsigned count)
         return (0);
     }
     
-    while((readCount < count) && SciaRegs.SCIRXST.bit.RXRDY)
+    while((readCount < count) && ScibRegs.SCIRXST.bit.RXRDY)
     {
-        *bufPtr = SciaRegs.SCIRXBUF.all;
+        *bufPtr = ScibRegs.SCIRXBUF.all;
         readCount++;
         bufPtr++;
     }
@@ -136,8 +136,8 @@ int SCI_write(int dev_fd, const char * buf, unsigned count)
     
     while(writeCount < count)
     {
-        while(!SciaRegs.SCICTL2.bit.TXRDY);
-        SciaRegs.SCITXBUF.all = *bufPtr;
+        while(!ScibRegs.SCICTL2.bit.TXRDY);
+        ScibRegs.SCITXBUF.all = *bufPtr;
         writeCount++;
         bufPtr++;
     }
@@ -178,7 +178,7 @@ int SCI_rename(const char * old_name, const char * new_name)
 //
 // SCI_open -
 //
-int SCIB_open(const char * path, unsigned flags, int llv_fd)
+int SCIA_open(const char * path, unsigned flags, int llv_fd)
 {
     if(deviceOpenB)
     {
@@ -194,7 +194,7 @@ int SCIB_open(const char * path, unsigned flags, int llv_fd)
 //
 // SCI_close -
 //
-int SCIB_close(int dev_fd)
+int SCIA_close(int dev_fd)
 {
     if((dev_fd != 1) || (!deviceOpenB))
     {
@@ -210,7 +210,7 @@ int SCIB_close(int dev_fd)
 //
 // SCI_read -
 //
-int SCIB_read(int dev_fd, char * buf, unsigned count)
+int SCIA_read(int dev_fd, char * buf, unsigned count)
 {
     uint16_t readCount = 0;
     uint16_t * bufPtr = (uint16_t *) buf;
@@ -220,9 +220,9 @@ int SCIB_read(int dev_fd, char * buf, unsigned count)
         return (0);
     }
 
-    while((readCount < count) && ScibRegs.SCIRXST.bit.RXRDY)
+    while((readCount < count) && SciaRegs.SCIRXST.bit.RXRDY)
     {
-        *bufPtr = ScibRegs.SCIRXBUF.all;
+        *bufPtr = SciaRegs.SCIRXBUF.all;
         readCount++;
         bufPtr++;
     }
@@ -233,7 +233,7 @@ int SCIB_read(int dev_fd, char * buf, unsigned count)
 //
 // SCI_write -
 //
-int SCIB_write(int dev_fd, const char * buf, unsigned count)
+int SCIA_write(int dev_fd, const char * buf, unsigned count)
 {
     uint16_t writeCount = 0;
     uint16_t * bufPtr = (uint16_t *) buf;
@@ -245,8 +245,8 @@ int SCIB_write(int dev_fd, const char * buf, unsigned count)
 
     while(writeCount < count)
     {
-        while(!ScibRegs.SCICTL2.bit.TXRDY);
-        ScibRegs.SCITXBUF.all = *bufPtr;
+        while(!SciaRegs.SCICTL2.bit.TXRDY);
+        SciaRegs.SCITXBUF.all = *bufPtr;
         writeCount++;
         bufPtr++;
     }
@@ -257,7 +257,7 @@ int SCIB_write(int dev_fd, const char * buf, unsigned count)
 //
 // SCI_lseek -
 //
-off_t SCIB_lseek(int dev_fd, off_t offset, int origin)
+off_t SCIA_lseek(int dev_fd, off_t offset, int origin)
 {
     return (0);
 }
@@ -265,7 +265,7 @@ off_t SCIB_lseek(int dev_fd, off_t offset, int origin)
 //
 // SCI_unlink -
 //
-int SCIB_unlink(const char * path)
+int SCIA_unlink(const char * path)
 {
     return (0);
 }
@@ -273,7 +273,7 @@ int SCIB_unlink(const char * path)
 //
 // SCI_rename -
 //
-int SCIB_rename(const char * old_name, const char * new_name)
+int SCIA_rename(const char * old_name, const char * new_name)
 {
     return (0);
 }
