@@ -6,8 +6,8 @@
  *
  *  Summary: The routines here translate between the existing seven
  *  segment display and the Nextion, leaving as much code untouched
- *  as possible. Two UARTS are used, SCIA for virtual COM debugging
- *  and SCIB which connects to the Nextion. An additional GPIO pin
+ *  as possible. Two UARTS, SCIB (GPIO13+40) for virtual COM debug
+ *  and SCIA (GPIO28+29) connecting Nextion. An additional GPIO2 pin
  *  is used as a limit switch input, which may be useful as a hard
  *  limit to profile or thread up to a shoulder.
  *
@@ -37,24 +37,24 @@ typedef unsigned char uchar_t;
 #include <ctype.h>
 #include "launchxl_ex1_sci_io.h"
 
-static void scia_init();
-//static void transmitSCIAChar(uint16_t a);
-//static void transmitSCIAMessage(const unsigned char *msg);
-//static void initSCIAFIFO(void);
+static void scib_init();
+//static void transmitSCIBChar(uint16_t a);
+//static void transmitSCIBMessage(const unsigned char *msg);
+//static void initSCIBFIFO(void);
 #endif
 
-static void scib_init();
-static void transmitSCIBChar(uint16_t a);
-static void transmitSCIBMessage(const unsigned char *msg);
-static void initSCIBFIFO(void);
+static void scia_init();
+static void transmitSCIAChar(uint16_t a);
+static void transmitSCIAMessage(const unsigned char *msg);
+static void initSCIAFIFO(void);
 
 static int nextion_read(uchar_t buf[], const int nmax)
 {
     int n = 0;
 
-    while (n < nmax && ScibRegs.SCIFFRX.bit.RXFFST)
+    while (n < nmax && SciaRegs.SCIFFRX.bit.RXFFST)
     {
-        uint16_t ReceivedChar = ScibRegs.SCIRXBUF.all;
+        uint16_t ReceivedChar = SciaRegs.SCIRXBUF.all;
         buf[n++] = ReceivedChar;
 
         // This delay is done to increase chances that a complete message from
@@ -83,7 +83,7 @@ static int nextion_read(uchar_t buf[], const int nmax)
 
 static void nextion_send(const uchar_t *msg)
 {
-    transmitSCIBMessage((const unsigned char*) msg);
+    transmitSCIAMessage((const unsigned char*) msg);
 
 #if NEXTION_DEBUG
     {
@@ -113,39 +113,39 @@ static void nextion_send(const uchar_t *msg)
 void nextion_init()
 {
     // Configure the GPIO pin for the limit switch input
-    // GPIO_setPinConfig(GPIO_25_GPIO25);
-    GPIO_SetupPinMux(25, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(25, GPIO_INPUT, GPIO_OPENDRAIN | GPIO_PULLUP);
+    // GPIO_setPinConfig(GPIO_2_GPIO2);
+    GPIO_SetupPinMux(2, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(2, GPIO_INPUT, GPIO_OPENDRAIN | GPIO_PULLUP);
 
 #if NEXTION_DEBUG
-    GPIO_setPinConfig(GPIO_28_SCIRXDA);
-    GPIO_setPinConfig(GPIO_29_SCITXDA);
+    GPIO_setPinConfig(GPIO_13_SCIRXDB);
+    GPIO_setPinConfig(GPIO_40_SCITXDB);
 
-    GPIO_setQualificationMode(28, GPIO_QUAL_ASYNC);
+    GPIO_setQualificationMode(13, GPIO_QUAL_ASYNC);
 
     scia_init();
 #endif
 
-    GPIO_setPinConfig(GPIO_13_SCIRXDB);
-    GPIO_setPinConfig(GPIO_40_SCITXDB);
+    GPIO_setPinConfig(GPIO_28_SCIRXDA);
+    GPIO_setPinConfig(GPIO_29_SCITXDA);
 
-    GPIO_setPadConfig(13, GPIO_PIN_TYPE_PULLUP);
-    // GPIO_setPadConfig(40, GPIO_PIN_TYPE_PULLUP);
+    GPIO_setPadConfig(28, GPIO_PIN_TYPE_PULLUP);
+    GPIO_setPadConfig(29, GPIO_PIN_TYPE_PULLUP);
 
-    GPIO_setQualificationMode(13, GPIO_QUAL_ASYNC);
+    GPIO_setQualificationMode(28, GPIO_QUAL_ASYNC);
 
-    scib_init();
+    scia_init();
 
-    initSCIBFIFO();
+    initSCIAFIFO();
 
 #if NEXTION_DEBUG
     // To help with debugging, configure the UART that is connected to
     // USB port, the virtual terminal, to be stdout.
     volatile int status = 0;
-    status = add_device("scia", _SSA, SCI_open, SCI_close, SCI_read, SCI_write,
+    status = add_device("scib", _SSA, SCI_open, SCI_close, SCI_read, SCI_write,
                         SCI_lseek, SCI_unlink, SCI_rename);
-    volatile FILE *fid = fopen("scia", "w");
-    freopen("scia:", "w", stdout);
+    volatile FILE *fid = fopen("scib", "w");
+    freopen("scib:", "w", stdout);
     setvbuf(stdout, NULL, _IONBF, 0);
 #endif
 }
@@ -332,7 +332,7 @@ KEY_REG nextion_loop(bool alarm, bool &enabled, bool &at_stop, bool &init)
     bool p_enabled = enabled;
 
     // Check the limit switch and update the enabled state
-    at_stop = GPIO_ReadPin(25);
+    at_stop = GPIO_ReadPin(2);
     enabled = enabled && !at_stop;
 
     // Receive message from Nextion display
@@ -510,47 +510,6 @@ KEY_REG nextion_loop(bool alarm, bool &enabled, bool &at_stop, bool &init)
 
 #if NEXTION_DEBUG
 //
-// scia_init - SCIA  8-bit word, baud rate 0x001A, default, 1 STOP bit,
-// no parity
-//
-static void scia_init()
-{
-    //
-    // Note: Clocks were turned on to the SCIA peripheral
-    // in the InitSysCtrl() function
-    //
-
-    //
-    // 1 stop bit,  No loopback, No parity,8 char bits, async mode,
-    // idle-line protocol
-    //
-    SciaRegs.SCICCR.all = 0x0007;
-
-    //
-    // enable TX, RX, internal SCICLK, Disable RX ERR, SLEEP, TXWAKE
-    //
-    SciaRegs.SCICTL1.all = 0x0003;
-
-    SciaRegs.SCICTL2.bit.TXINTENA = 1;
-    SciaRegs.SCICTL2.bit.RXBKINTENA = 1;
-
-    //
-    // 57600 baud @LSPCLK = 12.5MHz (100 MHz SYSCLK)
-    // (1152kBaud didn't work with LPSCLK = 12.5MHz)
-    //
-    SciaRegs.SCIHBAUD.all = 0x00;
-    SciaRegs.SCILBAUD.all = 0x1B;
-
-    //
-    // Relinquish SCI from Reset
-    //
-    SciaRegs.SCICTL1.all = 0x0023;
-
-    return;
-}
-#endif
-
-//
 // scib_init - SCIB  8-bit word, baud rate 0x001A, default, 1 STOP bit,
 // no parity
 //
@@ -575,21 +534,12 @@ static void scib_init()
     ScibRegs.SCICTL2.bit.TXINTENA = 1;
     ScibRegs.SCICTL2.bit.RXBKINTENA = 1;
 
-    // Calculate baud rate bits using BRR = LPSCLK / ((Baud rate + 1) * 8)
-    // Round to
-#if 0
     //
-    // 9600 baud @LSPCLK = 12.5MHz (100 MHz SYSCLK)
+    // 57600 baud @LSPCLK = 12.5MHz (100 MHz SYSCLK)
+    // (1152kBaud didn't work with LPSCLK = 12.5MHz)
     //
     ScibRegs.SCIHBAUD.all = 0x00;
-    ScibRegs.SCILBAUD.all = 0xA3;
-#else
-    //
-    // 38400 baud @LSPCLK = 12.5MHz (100 MHz SYSCLK)
-    //
-    ScibRegs.SCIHBAUD.all = 0x00;
-    ScibRegs.SCILBAUD.all = 0x29;
-#endif
+    ScibRegs.SCILBAUD.all = 0x1B;
 
     //
     // Relinquish SCI from Reset
@@ -598,49 +548,61 @@ static void scib_init()
 
     return;
 }
+#endif
+
+//
+// scia_init - SCIA  8-bit word, baud rate 0x001A, default, 1 STOP bit,
+// no parity
+//
+static void scia_init()
+{
+    //
+    // Note: Clocks were turned on to the SCIA peripheral
+    // in the InitSysCtrl() function
+    //
+
+    //
+    // 1 stop bit,  No loopback, No parity,8 char bits, async mode,
+    // idle-line protocol
+    //
+    SciaRegs.SCICCR.all = 0x0007;
+
+    //
+    // enable TX, RX, internal SCICLK, Disable RX ERR, SLEEP, TXWAKE
+    //
+    SciaRegs.SCICTL1.all = 0x0003;
+
+    SciaRegs.SCICTL2.bit.TXINTENA = 1;
+    SciaRegs.SCICTL2.bit.RXBKINTENA = 1;
+
+    // Calculate baud rate bits using BRR = LPSCLK / ((Baud rate + 1) * 8)
+    // Round to
+#if 0
+    //
+    // 9600 baud @LSPCLK = 12.5MHz (100 MHz SYSCLK)
+    //
+    SciaRegs.SCIHBAUD.all = 0x00;
+    SciaRegs.SCILBAUD.all = 0xA3;
+#else
+    //
+    // 38400 baud @LSPCLK = 12.5MHz (100 MHz SYSCLK)
+    //
+    SciaRegs.SCIHBAUD.all = 0x00;
+    SciaRegs.SCILBAUD.all = 0x29;
+#endif
+
+    //
+    // Relinquish SCI from Reset
+    //
+    SciaRegs.SCICTL1.all = 0x0023;
+
+    return;
+}
 
 #if NEXTION_DEBUG
 #if 0
 //
-// transmitSCIAChar - Transmit a character from the SCI
-//
-static void transmitSCIAChar(uint16_t a)
-{
-    while (SciaRegs.SCIFFTX.bit.TXFFST != 0)
-    {
-
-    }
-    SciaRegs.SCITXBUF.all = a;
-}
-
-//
-// transmitSCIAMessage - Transmit message via SCIA
-//
-static void transmitSCIAMessage(const unsigned char *msg)
-{
-    int i;
-    i = 0;
-    while (msg[i] != '\0')
-    {
-        transmitSCIAChar(msg[i]);
-        i++;
-    }
-}
-
-//
-// initSCIAFIFO - Initialize the SCI FIFO
-//
-static void initSCIAFIFO(void)
-{
-    SciaRegs.SCIFFTX.all = 0xE040;
-    SciaRegs.SCIFFRX.all = 0x2044;
-    SciaRegs.SCIFFCT.all = 0x0;
-}
-#endif
-#endif
-
-//
-// transmitSCIAChar - Transmit a character from the SCI
+// transmitSCIBChar - Transmit a character from the SCI
 //
 static void transmitSCIBChar(uint16_t a)
 {
@@ -652,7 +614,7 @@ static void transmitSCIBChar(uint16_t a)
 }
 
 //
-// transmitSCIAMessage - Transmit message via SCIB
+// transmitSCIBMessage - Transmit message via SCIB
 //
 static void transmitSCIBMessage(const unsigned char *msg)
 {
@@ -673,6 +635,44 @@ static void initSCIBFIFO(void)
     ScibRegs.SCIFFTX.all = 0xE040;
     ScibRegs.SCIFFRX.all = 0x2044;
     ScibRegs.SCIFFCT.all = 0x0;
+}
+#endif
+#endif
+
+//
+// transmitSCIBChar - Transmit a character from the SCI
+//
+static void transmitSCIAChar(uint16_t a)
+{
+    while (SciaRegs.SCIFFTX.bit.TXFFST != 0)
+    {
+
+    }
+    SciaRegs.SCITXBUF.all = a;
+}
+
+//
+// transmitSCIBMessage - Transmit message via SCIA
+//
+static void transmitSCIAMessage(const unsigned char *msg)
+{
+    int i;
+    i = 0;
+    while (msg[i] != '\0')
+    {
+        transmitSCIAChar(msg[i]);
+        i++;
+    }
+}
+
+//
+// initSCIAFIFO - Initialize the SCI FIFO
+//
+static void initSCIAFIFO(void)
+{
+    SciaRegs.SCIFFTX.all = 0xE040;
+    SciaRegs.SCIFFRX.all = 0x2044;
+    SciaRegs.SCIFFCT.all = 0x0;
 }
 
 // ===========================================================================
