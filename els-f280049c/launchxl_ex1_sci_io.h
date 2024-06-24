@@ -55,15 +55,6 @@ extern "C" {
 // 
 // Function prototypes
 //
-int SCI_open(const char * path, unsigned flags, int llv_fd);
-int SCI_close(int dev_fd);
-int SCI_read(int dev_fd, char * buf, unsigned count);
-int SCI_write(int dev_fd, const char * buf, unsigned count);
-off_t SCI_lseek(int dev_fd, off_t offset, int origin);
-int SCI_unlink(const char * path);
-int SCI_rename(const char * old_name, const char * new_name);
-
-// KVV
 int SCIB_open(const char * path, unsigned flags, int llv_fd);
 int SCIB_close(int dev_fd);
 int SCIB_read(int dev_fd, char * buf, unsigned count);
@@ -71,6 +62,15 @@ int SCIB_write(int dev_fd, const char * buf, unsigned count);
 off_t SCIB_lseek(int dev_fd, off_t offset, int origin);
 int SCIB_unlink(const char * path);
 int SCIB_rename(const char * old_name, const char * new_name);
+
+// KVV
+int SCI_open(const char * path, unsigned flags, int llv_fd);
+int SCI_close(int dev_fd);
+int SCI_read(int dev_fd, char * buf, unsigned count);
+int SCI_write(int dev_fd, const char * buf, unsigned count);
+off_t SCI_lseek(int dev_fd, off_t offset, int origin);
+int SCI_unlink(const char * path);
+int SCI_rename(const char * old_name, const char * new_name);
 
 
 #ifdef __cplusplus
